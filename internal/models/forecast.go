@@ -11,6 +11,6 @@ type DailyForecast struct {
 }
 
 type WeatherForecast struct {
-    ApiName string `json:"apiName"`
+	ApiName      string                      `json:"apiName"`
 	ForecastList map[time.Time]DailyForecast `json:"forecastList"`
 }

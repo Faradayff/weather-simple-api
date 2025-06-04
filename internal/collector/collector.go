@@ -12,15 +12,23 @@ import (
 // You can add more APIs by implementing the WeatherAPIClient interface in the apis package.
 var availableAPIs = []apis.WeatherClient{
 	apis.OpenMeteo{},
-	apis.WeatherAPI{APIKey: "",},
+	apis.WeatherAPI{APIKey: ""},
 }
 
-func FetchWeatherForecast(lat, lon float64, dates[] time.Time) ([]models.WeatherForecast, error) {
+func FetchWeatherForecast(lat, lon float64) ([]models.WeatherForecast, error) {
 	var wg sync.WaitGroup
 	var mu = make([]sync.Mutex, len(availableAPIs))
 
 	forecasts := make([]models.WeatherForecast, len(availableAPIs))
-
+	dates := make([]time.Time, 5)
+	for i := range dates {
+		if i == 0 {
+			dates[0] = time.Now()
+		} else {
+			dates[i] = dates[i-1].AddDate(0, 0, 1)
+		}
+	}
+	fmt.Println(dates)
 	for i, api := range availableAPIs {
 		forecasts[i].ApiName = api.GetClientName()
 		forecasts[i].ForecastList = make(map[time.Time]models.DailyForecast)

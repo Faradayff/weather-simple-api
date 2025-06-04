@@ -10,10 +10,10 @@ type OpenMeteo struct{}
 const OpenMeteoURL = ""
 
 func (o OpenMeteo) Fetch(lat, lon float64, date time.Time) (models.DailyForecast, error) {
-    
-    return models.DailyForecast{}, nil
+
+	return models.DailyForecast{}, nil
 }
 
 func (o OpenMeteo) GetClientName() string {
-    return "OpenMeteo"
+	return "OpenMeteo"
 }

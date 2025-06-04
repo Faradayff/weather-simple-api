@@ -6,16 +6,16 @@ import (
 )
 
 type WeatherAPI struct {
-    APIKey string
+	APIKey string
 }
 
 const WeatherAPIURL = ""
 
 func (w WeatherAPI) Fetch(lat, lon float64, date time.Time) (models.DailyForecast, error) {
-    
-    return models.DailyForecast{}, nil
+
+	return models.DailyForecast{}, nil
 }
 
 func (w WeatherAPI) GetClientName() string {
-    return "WeatherAPI"
+	return "WeatherAPI"
 }

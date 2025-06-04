@@ -2,6 +2,7 @@ package collector
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 	"weather-simple-api/internal/apis"
@@ -15,11 +16,11 @@ var availableAPIs = []apis.WeatherClient{
 	apis.WeatherAPI{APIKey: ""},
 }
 
-func FetchWeatherForecast(lat, lon float64) ([]models.WeatherForecast, error) {
+func FetchWeatherForecast(lat, lon float64) (map[string]map[string]models.DailyForecast, error) {
 	var wg sync.WaitGroup
 	var mu = make([]sync.Mutex, len(availableAPIs))
 
-	forecasts := make([]models.WeatherForecast, len(availableAPIs))
+	forecasts := make(map[string]map[string]models.DailyForecast)
 	dates := make([]time.Time, 5)
 	for i := range dates {
 		if i == 0 {
@@ -28,11 +29,10 @@ func FetchWeatherForecast(lat, lon float64) ([]models.WeatherForecast, error) {
 			dates[i] = dates[i-1].AddDate(0, 0, 1)
 		}
 	}
-	fmt.Println(dates)
+
 	for i, api := range availableAPIs {
-		forecasts[i].ApiName = api.GetClientName()
-		forecasts[i].ForecastList = make(map[time.Time]models.DailyForecast)
-		for _, date := range dates {
+		forecasts[api.GetClientName()] = make(map[string]models.DailyForecast)
+		for j, date := range dates {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -41,21 +41,15 @@ func FetchWeatherForecast(lat, lon float64) ([]models.WeatherForecast, error) {
 					fmt.Println("Error fetching from", api.GetClientName(), ":", err)
 					return
 				}
+				day := "day" + strconv.Itoa(j+1)
+
 				mu[i].Lock()
-				forecasts[i].ForecastList[date] = data
+				forecasts[api.GetClientName()][day] = data
 				mu[i].Unlock()
 			}()
 		}
 	}
 
 	wg.Wait()
-
-	var total int
-	for i := range forecasts {
-		total += len(forecasts[i].ForecastList)
-	}
-	if total == 0 {
-		return []models.WeatherForecast{}, fmt.Errorf("no data fetched from any API")
-	}
 	return forecasts, nil
 }

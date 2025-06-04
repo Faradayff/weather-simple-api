@@ -9,7 +9,7 @@ type OpenMeteo struct{}
 
 const OpenMeteoURL = ""
 
-func (o OpenMeteo) Fetch(lat, lon float32, date time.Time) (models.DailyForecast, error) {
+func (o OpenMeteo) Fetch(lat, lon float64, date time.Time) (models.DailyForecast, error) {
     
     return models.DailyForecast{}, nil
 }

@@ -11,7 +11,7 @@ type WeatherAPI struct {
 
 const WeatherAPIURL = ""
 
-func (w WeatherAPI) Fetch(lat, lon float32, date time.Time) (models.DailyForecast, error) {
+func (w WeatherAPI) Fetch(lat, lon float64, date time.Time) (models.DailyForecast, error) {
     
     return models.DailyForecast{}, nil
 }

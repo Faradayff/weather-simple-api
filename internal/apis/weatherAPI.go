@@ -18,7 +18,7 @@ func (w WeatherAPI) Fetch(lat, lon, date string) (models.DailyForecast, error) {
 	var respData weatherAPIResponse
 
 	url := fmt.Sprintf("%s?key=%s&q=%s,%s&date=%s&day=maxtemp_c", WeatherAPIURL, w.APIKey, lat, lon, date)
-	fmt.Println(url)
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return forecast, err

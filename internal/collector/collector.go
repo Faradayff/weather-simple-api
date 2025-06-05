@@ -2,6 +2,7 @@ package collector
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -13,7 +14,7 @@ import (
 // You can add more APIs by implementing the WeatherAPIClient interface in the apis package.
 var availableAPIs = []apis.WeatherClient{
 	apis.OpenMeteo{},
-	apis.WeatherAPI{APIKey: ""},
+	apis.WeatherAPI{APIKey: os.Getenv("WEATHER_API_KEY")},
 }
 
 func FetchWeatherForecast(lat, lon string) (map[string]map[string]models.DailyForecast, error) {

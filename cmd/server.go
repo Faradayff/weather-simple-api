@@ -5,7 +5,13 @@ import (
 	"log"
 	"net/http"
 	"weather-simple-api/internal/collector"
+
+	"github.com/joho/godotenv"
 )
+
+func init() {
+	godotenv.Load()
+}
 
 func main() {
 	http.HandleFunc("/weather", weatherHandler)

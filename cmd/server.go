@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strconv"
 	"weather-simple-api/internal/collector"
 )
 
@@ -16,18 +15,11 @@ func main() {
 }
 
 func weatherHandler(w http.ResponseWriter, r *http.Request) {
-	latStr := r.URL.Query().Get("lat")
-	lonStr := r.URL.Query().Get("lon")
+	lat := r.URL.Query().Get("lat")
+	lon := r.URL.Query().Get("lon")
 
-	lat, err := strconv.ParseFloat(latStr, 32)
-	if err != nil {
-		http.Error(w, "Invalid latitude value", http.StatusBadRequest)
-		return
-	}
-
-	lon, err := strconv.ParseFloat(lonStr, 32)
-	if err != nil {
-		http.Error(w, "Invalid longitude value", http.StatusBadRequest)
+	if lat == "" || lon == "" {
+		http.Error(w, "Missing lat or lon query parameters", http.StatusBadRequest)
 		return
 	}
 

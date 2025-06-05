@@ -16,17 +16,17 @@ var availableAPIs = []apis.WeatherClient{
 	apis.WeatherAPI{APIKey: ""},
 }
 
-func FetchWeatherForecast(lat, lon float64) (map[string]map[string]models.DailyForecast, error) {
+func FetchWeatherForecast(lat, lon string) (map[string]map[string]models.DailyForecast, error) {
 	var wg sync.WaitGroup
 	var mu = make([]sync.Mutex, len(availableAPIs))
 
 	forecasts := make(map[string]map[string]models.DailyForecast)
-	dates := make([]time.Time, 5)
+	dates := make([]string, 5)
 	for i := range dates {
 		if i == 0 {
-			dates[0] = time.Now()
+			dates[0] = time.Now().Format("2006-01-02")
 		} else {
-			dates[i] = dates[i-1].AddDate(0, 0, 1)
+			dates[i] = time.Now().AddDate(0, 0, i).Format("2006-01-02")
 		}
 	}
 

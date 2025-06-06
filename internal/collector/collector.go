@@ -10,6 +10,19 @@ import (
 	"weather-simple-api/internal/models"
 )
 
+type ForecastTask struct {
+	Lat, Lon string
+	Result   chan map[string]map[string]models.DailyForecast
+	Err      chan error
+}
+
+var (
+	taskQueue = make(chan ForecastTask)
+	once      sync.Once
+)
+
+const nWorkers = 3 // Number of concurrent workers
+
 // Add here the available APIs that you want to use for fetching weather data.
 // You can add more APIs by implementing the WeatherAPIClient interface in the apis package.
 var availableAPIs = []apis.WeatherClient{
@@ -17,7 +30,37 @@ var availableAPIs = []apis.WeatherClient{
 	apis.WeatherAPI{APIKey: os.Getenv("WEATHER_API_KEY")},
 }
 
-func FetchWeatherForecast(lat, lon string) (map[string]map[string]models.DailyForecast, error) {
+func StartWorker() {
+	once.Do(func() {
+		for range nWorkers {
+			go func() {
+				for task := range taskQueue {
+					result, err := fetchWeatherForecast(task.Lat, task.Lon)
+					if err != nil {
+						task.Err <- err
+					} else {
+						task.Result <- result
+					}
+				}
+			}()
+		}
+	})
+}
+
+func FetchWeatherForecastWorker(lat, lon string) (map[string]map[string]models.DailyForecast, error) {
+	StartWorker()
+	resultChan := make(chan map[string]map[string]models.DailyForecast)
+	errChan := make(chan error)
+	taskQueue <- ForecastTask{Lat: lat, Lon: lon, Result: resultChan, Err: errChan}
+	select {
+	case res := <-resultChan:
+		return res, nil
+	case err := <-errChan:
+		return nil, err
+	}
+}
+
+func fetchWeatherForecast(lat, lon string) (map[string]map[string]models.DailyForecast, error) {
 	var wg sync.WaitGroup
 	var mu = make([]sync.Mutex, len(availableAPIs))
 
@@ -35,7 +78,7 @@ func FetchWeatherForecast(lat, lon string) (map[string]map[string]models.DailyFo
 		forecasts[api.GetClientName()] = make(map[string]models.DailyForecast)
 		for j, date := range dates {
 			wg.Add(1)
-			go func() {
+			go func(i, j int, api apis.WeatherClient, date string) {
 				defer wg.Done()
 				data, err := api.Fetch(lat, lon, date)
 				if err != nil {
@@ -43,11 +86,10 @@ func FetchWeatherForecast(lat, lon string) (map[string]map[string]models.DailyFo
 					return
 				}
 				day := "day" + strconv.Itoa(j+1)
-
 				mu[i].Lock()
 				forecasts[api.GetClientName()][day] = data
 				mu[i].Unlock()
-			}()
+			}(i, j, api, date)
 		}
 	}
 

@@ -21,7 +21,7 @@ var (
 	once      sync.Once
 )
 
-const nWorkers = 3 // Number of concurrent workers
+const nWorkers int = 3 // Number of concurrent workers
 
 // Add here the available APIs that you want to use for fetching weather data.
 // You can add more APIs by implementing the WeatherAPIClient interface in the apis package.

@@ -29,7 +29,11 @@ func (w WeatherAPI) Fetch(lat, lon, date string) (models.DailyForecast, error) {
 	if err != nil {
 		return forecast, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Printf("Warning: Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return forecast, fmt.Errorf("failed to fetch data: %s", resp.Status)

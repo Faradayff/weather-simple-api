@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"weather-simple-api/internal/collector"
 
@@ -10,14 +10,16 @@ import (
 )
 
 func init() {
-	godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v", err) // Could give a false error when running from Docker
+	}
 }
 
 func main() {
 	http.HandleFunc("/weather", weatherHandler)
-	log.Println("Starting server on :8080")
+	fmt.Println("Starting server on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatalf("Server failed to start: %v", err)
+		fmt.Printf("Server failed to start: %v", err)
 	}
 }
 

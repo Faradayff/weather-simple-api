@@ -7,7 +7,9 @@ import (
 	"weather-simple-api/internal/models"
 )
 
-type OpenMeteo struct{}
+type OpenMeteo struct {
+	Client *http.Client
+}
 
 const OpenMeteoURL = "https://api.open-meteo.com/v1/forecast"
 
@@ -19,7 +21,12 @@ func (o OpenMeteo) Fetch(lat, lon, date string) (models.DailyForecast, error) {
 	endDate := date
 	url := fmt.Sprintf("%s?latitude=%s&longitude=%s&start_date=%s&end_date=%s&daily=temperature_2m_max,temperature_2m_min,uv_index_max", OpenMeteoURL, lat, lon, startDate, endDate)
 
-	resp, err := http.Get(url)
+	client := o.Client
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	resp, err := client.Get(url)
 	if err != nil {
 		return forecast, err
 	}

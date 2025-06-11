@@ -3,7 +3,6 @@ package collector
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -33,49 +32,11 @@ var (
 	cancel    context.CancelFunc
 )
 
-var nWorkers int = len(availableAPIs) * 5 * 2 // Number of concurrent workers
-
-// Add here the available APIs that you want to use for fetching weather data.
-// You can add more APIs by implementing the WeatherAPIClient interface in the apis package.
-var availableAPIs = []apis.WeatherClient{
-	apis.OpenMeteo{},
-	apis.WeatherAPI{APIKey: os.Getenv("WEATHER_API_KEY")},
-}
-
-func StartWorker() {
-	once.Do(func() {
-		ctx, cancel = context.WithCancel(context.Background()) // Start context with cancel function
-		for range nWorkers {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for {
-					select {
-					case <-ctx.Done(): // Checks if the context is canceled, signaling the worker to stop.
-						return
-					case task := <-taskQueue: // Checks if there is a task in the taskQueue channel.
-						result, err := fetchWeatherForecast(task.Api, task.Lat, task.Lon, task.Day) // Processes the task by fetching the weather forecast.
-						if err != nil {
-							task.Err <- err // Sends the error back through the task's error channel.
-						} else {
-							task.Result <- result // Sends the result back through the task's result channel.
-						}
-					}
-				}
-			}()
-		}
-	})
-}
-
-func StopWorkers() { // End function to stop the workers
-	cancel()
-	wg.Wait()
-}
-
-func FetchWeatherForecastWorker(ctx context.Context, lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Send the task to the workers
+func FetchWeatherForecastWorker(ctx context.Context, tm *TaskManager, lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Send the task to the workers
 	// Create channels for results and errors
 	resultChan := make(chan ForecastResult)
 	errChan := make(chan error)
+	availableAPIs := ctx.Value("availableAPIs").([]apis.WeatherClient)
 
 	// Send tasks to the workers
 	for _, api := range availableAPIs {

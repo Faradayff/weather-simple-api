@@ -5,10 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"weather-simple-api/internal/apis"
 	"weather-simple-api/internal/collector"
 
 	"github.com/joho/godotenv"
 )
+
+// Add here the available APIs that you want to use for fetching weather data.
+// You can add more APIs by implementing the WeatherAPIClient interface in the apis package.
+var availableAPIs = []apis.WeatherClient{
+	apis.OpenMeteo{},
+	apis.WeatherAPI{APIKey: os.Getenv("WEATHER_API_KEY")},
+}
 
 func init() { // Get environment variables from .env file
 	if err := godotenv.Load(".env"); err != nil {
@@ -17,17 +26,22 @@ func init() { // Get environment variables from .env file
 }
 
 func main() { // Start the workers and the server
-	collector.StartWorker()
-	defer collector.StopWorkers() // The workers will end the tasks when closing the server
+	// Initialize TaskManager
+	workerCount := len(availableAPIs) * 5 * 2
+	taskManager := collector.NewTaskManager(workerCount)
+	taskManager.StartWorkers(workerCount)
+	defer taskManager.StopWorkers() // The workers will end the tasks when closing the server
 
-	http.HandleFunc("/weather", weatherHandler)
+	http.HandleFunc("/weather", func(w http.ResponseWriter, r *http.Request) {
+		weatherHandler(w, r, taskManager)
+	})
 	fmt.Println("Starting server on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		fmt.Printf("Server failed to start: %v", err)
 	}
 }
 
-func weatherHandler(w http.ResponseWriter, r *http.Request) { // Handle the endpoint /weather
+func weatherHandler(w http.ResponseWriter, r *http.Request, tm *collector.TaskManager) { // Handle the endpoint /weather
 	// Get latitude and longitude query parameters
 	lat := r.URL.Query().Get("lat")
 	lon := r.URL.Query().Get("lon")
@@ -41,7 +55,8 @@ func weatherHandler(w http.ResponseWriter, r *http.Request) { // Handle the endp
 	}
 
 	// Fetch weather forecast using the collector package
-	data, err := collector.FetchWeatherForecastWorker(ctx, lat, lon)
+	ctx = context.WithValue(ctx, "availableAPIs", availableAPIs)
+	data, err := collector.FetchWeatherForecastWorker(ctx, tm, lat, lon)
 	if err != nil {
 		if ctx.Err() == context.Canceled {
 			http.Error(w, "Request canceled by the client", http.StatusRequestTimeout)

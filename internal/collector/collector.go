@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 	"weather-simple-api/internal/apis"
+	"weather-simple-api/internal/common"
 	"weather-simple-api/internal/models"
 )
 
@@ -23,13 +24,11 @@ type ForecastResult struct {
 	Forecast models.DailyForecast
 }
 
-var taskQueue = make(chan ForecastTask)
-
 func FetchWeatherForecastWorker(ctx context.Context, tm *TaskManager, lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Send the task to the workers
 	// Create channels for results and errors
 	resultChan := make(chan ForecastResult)
 	errChan := make(chan error)
-	availableAPIs := ctx.Value("availableAPIs").([]apis.WeatherClient)
+	availableAPIs := ctx.Value(common.AvailableAPIsKey).([]apis.WeatherClient)
 
 	// Send tasks to the workers
 	for _, api := range availableAPIs {

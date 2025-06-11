@@ -8,6 +8,7 @@ import (
 	"os"
 	"weather-simple-api/internal/apis"
 	"weather-simple-api/internal/collector"
+	"weather-simple-api/internal/common"
 
 	"github.com/joho/godotenv"
 )
@@ -56,7 +57,7 @@ func weatherHandler(w http.ResponseWriter, r *http.Request, tm *collector.TaskMa
 	}
 
 	// Fetch weather forecast using the collector package
-	ctx = context.WithValue(ctx, "availableAPIs", availableAPIs)
+	ctx = context.WithValue(ctx, common.AvailableAPIsKey, availableAPIs)
 	data, err := collector.FetchWeatherForecastWorker(ctx, tm, lat, lon)
 	if err != nil {
 		if ctx.Err() == context.Canceled {

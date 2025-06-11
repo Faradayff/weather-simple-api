@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 	"weather-simple-api/internal/apis"
+	"weather-simple-api/internal/common"
 	"weather-simple-api/internal/models"
 )
 
@@ -22,8 +23,6 @@ func (m mockAPI) GetClientName() string {
 	return "mockAPI"
 }
 
-var availableAPIs []apis.WeatherClient
-
 func TestFetchWeatherForecastWorker(t *testing.T) {
 	// Define mock APIs
 	availableAPIs := []apis.WeatherClient{
@@ -31,7 +30,7 @@ func TestFetchWeatherForecastWorker(t *testing.T) {
 	}
 
 	// Add availableAPIs to the context
-	ctx := context.WithValue(context.Background(), "availableAPIs", availableAPIs)
+	ctx := context.WithValue(context.Background(), common.AvailableAPIsKey, availableAPIs)
 
 	// Initialize TaskManager
 	taskManager := &TaskManager{

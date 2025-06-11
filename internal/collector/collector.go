@@ -12,9 +12,17 @@ import (
 )
 
 type ForecastTask struct {
+	Api      apis.WeatherClient
 	Lat, Lon string
-	Result   chan map[string]map[string]models.DailyForecast
+	Day      int
+	Result   chan ForecastResult
 	Err      chan error
+}
+
+type ForecastResult struct {
+	Api      string
+	Date     string
+	Forecast models.DailyForecast
 }
 
 var (
@@ -25,7 +33,7 @@ var (
 	cancel    context.CancelFunc
 )
 
-const nWorkers int = 3 // Number of concurrent workers
+var nWorkers int = len(availableAPIs) * 5 * 2 // Number of concurrent workers
 
 // Add here the available APIs that you want to use for fetching weather data.
 // You can add more APIs by implementing the WeatherAPIClient interface in the apis package.
@@ -46,7 +54,7 @@ func StartWorker() {
 					case <-ctx.Done(): // Checks if the context is canceled, signaling the worker to stop.
 						return
 					case task := <-taskQueue: // Checks if there is a task in the taskQueue channel.
-						result, err := fetchWeatherForecast(task.Lat, task.Lon) // Processes the task by fetching the weather forecast.
+						result, err := fetchWeatherForecast(task.Api, task.Lat, task.Lon, task.Day) // Processes the task by fetching the weather forecast.
 						if err != nil {
 							task.Err <- err // Sends the error back through the task's error channel.
 						} else {
@@ -64,50 +72,44 @@ func StopWorkers() { // End function to stop the workers
 	wg.Wait()
 }
 
-func FetchWeatherForecastWorker(lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Send the task to thje workers
-	resultChan := make(chan map[string]map[string]models.DailyForecast)
+func FetchWeatherForecastWorker(lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Send the task to the workers
+	// Create channels for results and errors
+	resultChan := make(chan ForecastResult)
 	errChan := make(chan error)
-	taskQueue <- ForecastTask{Lat: lat, Lon: lon, Result: resultChan, Err: errChan}
+
+	// Send tasks to the workers
+	for _, api := range availableAPIs {
+		for i := range 5 {
+			taskQueue <- ForecastTask{Api: api, Lat: lat, Lon: lon, Day: i, Result: resultChan, Err: errChan}
+		}
+	}
+
+	forecast := make(map[string]map[string]models.DailyForecast)
+	errorCount := 0
+	errors := make([]error, 0)
+
+	// Wait for results or errors
 	select {
 	case res := <-resultChan:
-		return res, nil
+		forecast[res.Api] = make(map[string]models.DailyForecast)
+		forecast[res.Api][res.Date] = res.Forecast
 	case err := <-errChan:
-		return nil, err
+		errorCount++
+		errors = append(errors, err)
+		if errorCount >= len(availableAPIs)*5/2-1 { // If the numbers of errors is greater than half of the total tasks, return an error
+			return nil, fmt.Errorf("failed to fetch data from all APIs: %v", errors)
+		}
 	}
+
+	return forecast, nil
 }
 
-func fetchWeatherForecast(lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Get the weather forecast (worker's job)
-	var mu = make([]sync.Mutex, len(availableAPIs))
-
-	forecasts := make(map[string]map[string]models.DailyForecast)
-	dates := make([]string, 5)
-	for i := range dates {
-		if i == 0 {
-			dates[0] = time.Now().Format("2006-01-02")
-		} else {
-			dates[i] = time.Now().AddDate(0, 0, i).Format("2006-01-02")
-		}
+func fetchWeatherForecast(api apis.WeatherClient, lat, lon string, day int) (ForecastResult, error) { // Get the one day weather forecast (worker's job)
+	date := time.Now().AddDate(0, 0, day).Format("2006-01-02")
+	result, err := api.Fetch(lat, lon, date)
+	if err != nil {
+		return ForecastResult{}, fmt.Errorf("error fetching data from %s: %w", api.GetClientName(), err)
 	}
 
-	for i, api := range availableAPIs {
-		forecasts[api.GetClientName()] = make(map[string]models.DailyForecast)
-		for j, date := range dates {
-			wg.Add(1)
-			go func(i, j int, api apis.WeatherClient, date string) {
-				defer wg.Done()
-				data, err := api.Fetch(lat, lon, date)
-				if err != nil {
-					fmt.Println("Error fetching from", api.GetClientName(), ":", err)
-					return
-				}
-				day := "day" + strconv.Itoa(j+1)
-				mu[i].Lock()
-				forecasts[api.GetClientName()][day] = data
-				mu[i].Unlock()
-			}(i, j, api, date)
-		}
-	}
-
-	wg.Wait()
-	return forecasts, nil
+	return ForecastResult{Api: api.GetClientName(), Date: "day" + strconv.Itoa(day+1), Forecast: result}, nil
 }

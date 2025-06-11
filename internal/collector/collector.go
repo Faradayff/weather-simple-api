@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 	"weather-simple-api/internal/apis"
 	"weather-simple-api/internal/models"
@@ -24,13 +23,7 @@ type ForecastResult struct {
 	Forecast models.DailyForecast
 }
 
-var (
-	taskQueue = make(chan ForecastTask)
-	once      sync.Once
-	wg        sync.WaitGroup
-	ctx       context.Context
-	cancel    context.CancelFunc
-)
+var taskQueue = make(chan ForecastTask)
 
 func FetchWeatherForecastWorker(ctx context.Context, tm *TaskManager, lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Send the task to the workers
 	// Create channels for results and errors
@@ -44,7 +37,7 @@ func FetchWeatherForecastWorker(ctx context.Context, tm *TaskManager, lat, lon s
 			select {
 			case <-ctx.Done(): // Continue working until the context is canceled
 				return nil, ctx.Err()
-			case taskQueue <- ForecastTask{Api: api, Lat: lat, Lon: lon, Day: i, Result: resultChan, Err: errChan}:
+			case tm.taskQueue <- ForecastTask{Api: api, Lat: lat, Lon: lon, Day: i, Result: resultChan, Err: errChan}:
 			}
 		}
 	}

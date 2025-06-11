@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"testing"
 	"weather-simple-api/internal/apis"
 	"weather-simple-api/internal/models"
@@ -21,16 +22,34 @@ func (m mockAPI) GetClientName() string {
 	return "mockAPI"
 }
 
+var availableAPIs []apis.WeatherClient
+
 func TestFetchWeatherForecastWorker(t *testing.T) {
-	availableAPIs = []apis.WeatherClient{
+	// Define mock APIs
+	availableAPIs := []apis.WeatherClient{
 		mockAPI{},
 	}
 
-	result, err := FetchWeatherForecastWorker("1", "2")
+	// Add availableAPIs to the context
+	ctx := context.WithValue(context.Background(), "availableAPIs", availableAPIs)
+
+	// Initialize TaskManager
+	taskManager := &TaskManager{
+		taskQueue: make(chan ForecastTask, 10), // Initialize the task queue
+	}
+
+	// Start workers
+	taskManager.ctx, taskManager.cancel = context.WithCancel(context.Background())
+	taskManager.StartWorkers(2) // Start 2 workers for the test
+	defer taskManager.StopWorkers()
+
+	// Call FetchWeatherForecastWorker
+	result, err := FetchWeatherForecastWorker(ctx, taskManager, "1", "2")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	// Validate the results
 	apiName := "mockAPI"
 	forecasts, ok := result[apiName]
 	if !ok {

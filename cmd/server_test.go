@@ -31,7 +31,7 @@ func createWeatherHandler(fetchWeather func(lat, lon string) (any, error)) http.
 func TestWeatherHandler_MissingParams(t *testing.T) {
 	req := httptest.NewRequest("GET", "/weather", nil)
 	w := httptest.NewRecorder()
-	weatherHandler(w, req)
+	weatherHandler(w, req, nil) // Pass nil or a mock TaskManager as appropriate
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", w.Code)
 	}

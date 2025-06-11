@@ -26,8 +26,9 @@ func init() { // Get environment variables from .env file
 }
 
 func main() { // Start the workers and the server
-	// Initialize TaskManager
 	workerCount := len(availableAPIs) * 5 * 2
+
+	// Initialize TaskManager
 	taskManager := collector.NewTaskManager(workerCount)
 	taskManager.StartWorkers(workerCount)
 	defer taskManager.StopWorkers() // The workers will end the tasks when closing the server

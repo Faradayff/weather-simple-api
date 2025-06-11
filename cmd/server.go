@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -31,15 +32,22 @@ func weatherHandler(w http.ResponseWriter, r *http.Request) { // Handle the endp
 	lat := r.URL.Query().Get("lat")
 	lon := r.URL.Query().Get("lon")
 
+	// Get the context
+	ctx := r.Context()
+
 	if lat == "" || lon == "" {
 		http.Error(w, "Missing lat or lon query parameters", http.StatusBadRequest)
 		return
 	}
 
 	// Fetch weather forecast using the collector package
-	data, err := collector.FetchWeatherForecastWorker(lat, lon)
+	data, err := collector.FetchWeatherForecastWorker(ctx, lat, lon)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if ctx.Err() == context.Canceled {
+			http.Error(w, "Request canceled by the client", http.StatusRequestTimeout)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 

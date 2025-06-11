@@ -72,7 +72,7 @@ func StopWorkers() { // End function to stop the workers
 	wg.Wait()
 }
 
-func FetchWeatherForecastWorker(lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Send the task to the workers
+func FetchWeatherForecastWorker(ctx context.Context, lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Send the task to the workers
 	// Create channels for results and errors
 	resultChan := make(chan ForecastResult)
 	errChan := make(chan error)
@@ -80,7 +80,11 @@ func FetchWeatherForecastWorker(lat, lon string) (map[string]map[string]models.D
 	// Send tasks to the workers
 	for _, api := range availableAPIs {
 		for i := range 5 {
-			taskQueue <- ForecastTask{Api: api, Lat: lat, Lon: lon, Day: i, Result: resultChan, Err: errChan}
+			select {
+			case <-ctx.Done(): // Continue working until the context is canceled
+				return nil, ctx.Err()
+			case taskQueue <- ForecastTask{Api: api, Lat: lat, Lon: lon, Day: i, Result: resultChan, Err: errChan}:
+			}
 		}
 	}
 
@@ -89,15 +93,21 @@ func FetchWeatherForecastWorker(lat, lon string) (map[string]map[string]models.D
 	errors := make([]error, 0)
 
 	// Wait for results or errors
-	select {
-	case res := <-resultChan:
-		forecast[res.Api] = make(map[string]models.DailyForecast)
-		forecast[res.Api][res.Date] = res.Forecast
-	case err := <-errChan:
-		errorCount++
-		errors = append(errors, err)
-		if errorCount >= len(availableAPIs)*5/2-1 { // If the numbers of errors is greater than half of the total tasks, return an error
-			return nil, fmt.Errorf("failed to fetch data from all APIs: %v", errors)
+	for range len(availableAPIs) * 5 {
+		select {
+		case <-ctx.Done(): // Continue working until the context is canceled
+			return nil, ctx.Err()
+		case res := <-resultChan:
+			if _, ok := forecast[res.Api]; !ok {
+				forecast[res.Api] = make(map[string]models.DailyForecast)
+			}
+			forecast[res.Api][res.Date] = res.Forecast
+		case err := <-errChan:
+			errorCount++
+			errors = append(errors, err)
+			if errorCount > len(availableAPIs)*5/2 { // If the numbers of errors is greater than half of the total tasks, return an error
+				return nil, fmt.Errorf("failed to fetch data from all APIs: %v", errors)
+			}
 		}
 	}
 

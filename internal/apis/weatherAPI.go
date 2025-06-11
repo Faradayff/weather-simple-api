@@ -14,7 +14,7 @@ type WeatherAPI struct {
 
 const WeatherAPIURL = "https://api.weatherapi.com/v1/forecast.json"
 
-func (w WeatherAPI) Fetch(lat, lon, date string) (models.DailyForecast, error) {
+func (w WeatherAPI) Fetch(lat, lon, date string) (models.DailyForecast, error) { // Get weather forecast
 	var forecast models.DailyForecast
 	var respData weatherAPIResponse
 
@@ -65,7 +65,6 @@ type weatherAPIResponse struct {
 				MintempC float64 `json:"mintemp_c"`
 				Uv       float64 `json:"uv"`
 			} `json:"day"`
-			// Puedes agregar "astro" y "hour" si los necesitas
 		} `json:"forecastday"`
 	} `json:"forecast"`
 }

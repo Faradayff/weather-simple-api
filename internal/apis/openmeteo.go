@@ -13,7 +13,7 @@ type OpenMeteo struct {
 
 const OpenMeteoURL = "https://api.open-meteo.com/v1/forecast"
 
-func (o OpenMeteo) Fetch(lat, lon, date string) (models.DailyForecast, error) {
+func (o OpenMeteo) Fetch(lat, lon, date string) (models.DailyForecast, error) { // Get weather forecast
 	var forecast models.DailyForecast
 	var respData openMeteoResponse
 

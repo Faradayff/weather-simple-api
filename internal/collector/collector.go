@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -19,6 +20,9 @@ type ForecastTask struct {
 var (
 	taskQueue = make(chan ForecastTask)
 	once      sync.Once
+	wg        sync.WaitGroup
+	ctx       context.Context
+	cancel    context.CancelFunc
 )
 
 const nWorkers int = 3 // Number of concurrent workers
@@ -32,14 +36,22 @@ var availableAPIs = []apis.WeatherClient{
 
 func StartWorker() {
 	once.Do(func() {
+		ctx, cancel = context.WithCancel(context.Background()) // Start context with cancel function
 		for range nWorkers {
+			wg.Add(1)
 			go func() {
-				for task := range taskQueue {
-					result, err := fetchWeatherForecast(task.Lat, task.Lon)
-					if err != nil {
-						task.Err <- err
-					} else {
-						task.Result <- result
+				defer wg.Done()
+				for {
+					select {
+					case <-ctx.Done(): // Checks if the context is canceled, signaling the worker to stop.
+						return
+					case task := <-taskQueue: // Checks if there is a task in the taskQueue channel.
+						result, err := fetchWeatherForecast(task.Lat, task.Lon) // Processes the task by fetching the weather forecast.
+						if err != nil {
+							task.Err <- err // Sends the error back through the task's error channel.
+						} else {
+							task.Result <- result // Sends the result back through the task's result channel.
+						}
 					}
 				}
 			}()
@@ -47,8 +59,12 @@ func StartWorker() {
 	})
 }
 
-func FetchWeatherForecastWorker(lat, lon string) (map[string]map[string]models.DailyForecast, error) {
-	StartWorker()
+func StopWorkers() { // End function to stop the workers
+	cancel()
+	wg.Wait()
+}
+
+func FetchWeatherForecastWorker(lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Send the task to thje workers
 	resultChan := make(chan map[string]map[string]models.DailyForecast)
 	errChan := make(chan error)
 	taskQueue <- ForecastTask{Lat: lat, Lon: lon, Result: resultChan, Err: errChan}
@@ -60,8 +76,7 @@ func FetchWeatherForecastWorker(lat, lon string) (map[string]map[string]models.D
 	}
 }
 
-func fetchWeatherForecast(lat, lon string) (map[string]map[string]models.DailyForecast, error) {
-	var wg sync.WaitGroup
+func fetchWeatherForecast(lat, lon string) (map[string]map[string]models.DailyForecast, error) { // Get the weather forecast (worker's job)
 	var mu = make([]sync.Mutex, len(availableAPIs))
 
 	forecasts := make(map[string]map[string]models.DailyForecast)

@@ -9,13 +9,16 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func init() {
-	if err := godotenv.Load(); err != nil {
+func init() { // Get environment variables from .env file
+	if err := godotenv.Load(".env"); err != nil {
 		fmt.Printf("Warning: Could not load .env file: %v", err) // Could give a false error when running from Docker
 	}
 }
 
-func main() {
+func main() { // Start the workers and the server
+	collector.StartWorker()
+	defer collector.StopWorkers() // The workers will end the tasks when closing the server
+
 	http.HandleFunc("/weather", weatherHandler)
 	fmt.Println("Starting server on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
@@ -23,7 +26,8 @@ func main() {
 	}
 }
 
-func weatherHandler(w http.ResponseWriter, r *http.Request) {
+func weatherHandler(w http.ResponseWriter, r *http.Request) { // Handle the endpoint /weather
+	// Get latitude and longitude query parameters
 	lat := r.URL.Query().Get("lat")
 	lon := r.URL.Query().Get("lon")
 
@@ -32,12 +36,14 @@ func weatherHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch weather forecast using the collector package
 	data, err := collector.FetchWeatherForecastWorker(lat, lon)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Set response headers and encode the data as JSON
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
